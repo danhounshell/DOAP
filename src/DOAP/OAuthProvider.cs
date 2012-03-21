@@ -14,7 +14,7 @@ namespace DOAP
   using Response;
 
   /// <summary>
-  /// Defines the methods required to implement an OAuth 2.0 - Draft #10 Resource/Authorisation Server
+  /// Defines the methods required to implement an OAuth 2.0 - Draft #10 Resource/Authorization Server
   /// http://tools.ietf.org/html/draft-ietf-oauth-v2-10
   /// </summary>
   public class OAuthProvider<TClientIdentity, TResourceOwnerIdentity>
@@ -23,63 +23,63 @@ namespace DOAP
 
     private readonly IClientProvider<TClientIdentity> clientProvider;
     private readonly ITokenProvider<TClientIdentity, TResourceOwnerIdentity> tokenProvider;
-    private readonly IAuthorisationProvider<TClientIdentity, TResourceOwnerIdentity> authorisationProvider;
+    private readonly IAuthorizationProvider<TClientIdentity, TResourceOwnerIdentity> authorizationProvider;
     private readonly IPasswordProvider<TResourceOwnerIdentity> passwordProvider;
     private readonly IAssertionProvider<TResourceOwnerIdentity> assertionProvider;
     private readonly IEnumerable<GrantType> supportedGrantTypes;
     private readonly IEnumerable<ResponseType> supportedResponseTypes;
     private readonly IEnumerable<string> supportedScopes;
     private readonly TimeSpan? accessTokenExpirationTime;
-    private readonly TimeSpan authorisationTokenExpirationTime;
+    private readonly TimeSpan authorizationTokenExpirationTime;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="OAuthProvider&lt;TClientIdentity, TResourceOwnerIdentity&gt;"/> class.
     /// </summary>
     /// <param name="clientProvider">The client provider.</param>
     /// <param name="tokenProvider">The token provider.</param>
-    /// <param name="authorisationProvider">The authorisation provider.</param>
+    /// <param name="authorizationProvider">The authorization provider.</param>
     /// <param name="passwordProvider">The password provider.</param>
     /// <param name="assertionProvider">The assertion provider.</param>
     /// <param name="supportedGrantTypes">The supported grant types.</param>
     /// <param name="supportedScopes">The supported scopes.</param>
     /// <param name="supportedResponseTypes">The supported response types.</param>
     /// <param name="accessTokenExpirationTime">The access token expiration time.</param>
-    /// <param name="authorisationTokenExpirationTime">The authorisation token expiration time.</param>
+    /// <param name="authorizationTokenExpirationTime">The authorization token expiration time.</param>
     public OAuthProvider(IClientProvider<TClientIdentity> clientProvider,
       ITokenProvider<TClientIdentity, TResourceOwnerIdentity> tokenProvider,
-      IAuthorisationProvider<TClientIdentity, TResourceOwnerIdentity> authorisationProvider,
+      IAuthorizationProvider<TClientIdentity, TResourceOwnerIdentity> authorizationProvider,
       IPasswordProvider<TResourceOwnerIdentity> passwordProvider,
       IAssertionProvider<TResourceOwnerIdentity> assertionProvider,
       IEnumerable<GrantType> supportedGrantTypes, 
       IEnumerable<string> supportedScopes, 
       IEnumerable<ResponseType> supportedResponseTypes,
       TimeSpan? accessTokenExpirationTime,
-      TimeSpan authorisationTokenExpirationTime)
+      TimeSpan authorizationTokenExpirationTime)
     {
       this.clientProvider = clientProvider;
       this.tokenProvider = tokenProvider;
-      this.authorisationProvider = authorisationProvider;
+      this.authorizationProvider = authorizationProvider;
       this.passwordProvider = passwordProvider;
       this.assertionProvider = assertionProvider;
       this.supportedGrantTypes = supportedGrantTypes ?? new List<GrantType>();
       this.supportedScopes = supportedScopes ?? new List<string>();
       this.supportedResponseTypes = supportedResponseTypes ?? new List<ResponseType>();
       this.accessTokenExpirationTime = accessTokenExpirationTime;
-      this.authorisationTokenExpirationTime = authorisationTokenExpirationTime;
+      this.authorizationTokenExpirationTime = authorizationTokenExpirationTime;
     }
 
     /// <summary>
-    /// Returns an <see cref="AuthorisationCode{TClientIdentity,TResourceOwnerIdentity}"/> that shows what the client is requesting access to and in what scope(s)
+    /// Returns an <see cref="AuthorizationCode{TClientIdentity,TResourceOwnerIdentity}"/> that shows what the client is requesting access to and in what scope(s)
     /// </summary>
     /// <param name="context">The context.</param>
-    /// <returns>An <see cref="AuthorisationCode{TClientIdentity,TResourceOwnerIdentity}"/> with the access or error</returns>
+    /// <returns>An <see cref="AuthorizationCode{TClientIdentity,TResourceOwnerIdentity}"/> with the access or error</returns>
     /// <remarks>http://tools.ietf.org/html/draft-ietf-oauth-v2-10#section-3</remarks>
-    public AuthorisationResponse<TClientIdentity> RequestedAuthorisation(IAuthorisationContext<TClientIdentity> context)
+    public AuthorizationResponse<TClientIdentity> RequestedAuthorization(IAuthorizationContext<TClientIdentity> context)
     {
       // Verify the data in the context
       if(context.ResponseType == ResponseType.Unknown)
       {
-        return new AuthorisationResponse<TClientIdentity>
+        return new AuthorizationResponse<TClientIdentity>
         {
           ErrorCode = ErrorCode.InvalidRequest,
           RedirectUri = context.RedirectUri,
@@ -89,7 +89,7 @@ namespace DOAP
 
       if(!this.supportedResponseTypes.Contains(context.ResponseType))
       {
-        return new AuthorisationResponse<TClientIdentity>
+        return new AuthorizationResponse<TClientIdentity>
         {
           ErrorCode = ErrorCode.UnSupportedResponseType,
           RedirectUri = context.RedirectUri,
@@ -100,7 +100,7 @@ namespace DOAP
       var client = this.clientProvider.FindClientById(context.ClientId);
       if (client == null)
       {
-        return new AuthorisationResponse<TClientIdentity>
+        return new AuthorizationResponse<TClientIdentity>
                  {
                    ErrorCode = ErrorCode.InvalidClient,
                    RedirectUri = context.RedirectUri,
@@ -110,7 +110,7 @@ namespace DOAP
 
       if(context.RedirectUri == null || !client.RedirectUri.Contains(context.RedirectUri))
       {
-        return new AuthorisationResponse<TClientIdentity>
+        return new AuthorizationResponse<TClientIdentity>
         {
           ErrorCode = ErrorCode.RedirectUriMismatch,
           RedirectUri = context.RedirectUri,
@@ -120,7 +120,7 @@ namespace DOAP
 
       if(!this.IsSupportedScope(context.Scope))
       {
-        return new AuthorisationResponse<TClientIdentity>
+        return new AuthorizationResponse<TClientIdentity>
         {
           ErrorCode = ErrorCode.UnSupportedGrantType,
           RedirectUri = context.RedirectUri,
@@ -128,7 +128,7 @@ namespace DOAP
         };
       }
 
-      return new AuthorisationResponse<TClientIdentity>
+      return new AuthorizationResponse<TClientIdentity>
                {
                  Client = client,
                  Scope = context.Scope,
@@ -138,7 +138,7 @@ namespace DOAP
     }
 
     /// <summary>
-    /// Authorises the request.
+    /// Authorizes the request.
     /// </summary>
     /// <param name="response">The response.</param>
     /// <param name="responseType">Type of the response.</param>
@@ -146,7 +146,7 @@ namespace DOAP
     /// <param name="expiresIn">The expires in.</param>
     /// <returns>The uri to redirect to</returns>
     /// <remarks>http://tools.ietf.org/html/draft-ietf-oauth-v2-10#section-3</remarks>
-    public Uri AuthoriseRequest(AuthorisationResponse<TClientIdentity> response, ResponseType responseType, TResourceOwnerIdentity resourceOwnerId, int? expiresIn)
+    public Uri AuthorizeRequest(AuthorizationResponse<TClientIdentity> response, ResponseType responseType, TResourceOwnerIdentity resourceOwnerId, int? expiresIn)
     {
       string token = (responseType == ResponseType.CodeAndToken || responseType == ResponseType.Token)
                        ? this.tokenProvider.GenerateToken()
@@ -156,7 +156,7 @@ namespace DOAP
                       : null;
 
       var uri = BuildRedirectUri(response.RedirectUri, code, token, expiresIn, response.Scope, response.State);
-      var authorisationCode = new AuthorisationCode<TClientIdentity, TResourceOwnerIdentity>
+      var authorizationCode = new AuthorizationCode<TClientIdentity, TResourceOwnerIdentity>
                                 {
                                   Code = code,
                                   RedirectUri = response.RedirectUri,
@@ -164,9 +164,9 @@ namespace DOAP
                                   ResourceOwnerId = resourceOwnerId
                                 };
 
-      authorisationCode.Expires = authorisationCode.TimeStamp + this.authorisationTokenExpirationTime;
+      authorizationCode.Expires = authorizationCode.TimeStamp + this.authorizationTokenExpirationTime;
 
-      this.authorisationProvider.StoreAuthoriseClient(authorisationCode);
+      this.authorizationProvider.StoreAuthorizeClient(authorizationCode);
       return uri;
     }
 
@@ -421,7 +421,7 @@ namespace DOAP
         return ErrorCode.InvalidRequest;
       }
 
-      var authCode = this.authorisationProvider.FindAuthorisationCode(tokenContext.Code);
+      var authCode = this.authorizationProvider.FindAuthorizationCode(tokenContext.Code);
 
       // Invalid grant
       if(authCode == null || authCode.RedirectUri != tokenContext.RedirectUri ||EqualityComparer<TClientIdentity>.Default.Equals(authCode.ClientId ,tokenContext.ClientId))

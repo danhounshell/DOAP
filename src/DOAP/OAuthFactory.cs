@@ -20,9 +20,9 @@ namespace DOAP
     public static readonly TimeSpan DefaultAccessTokenExpirationTime = TimeSpan.FromHours(1);
 
     /// <summary>
-    /// The default code authorisation expiration time span.
+    /// The default code authorization expiration time span.
     /// </summary>
-    public static readonly TimeSpan DefaultAuthorisationCodeExpirationTime = TimeSpan.FromMinutes(5);
+    public static readonly TimeSpan DefaultAuthorizationCodeExpirationTime = TimeSpan.FromMinutes(5);
 
     /// <summary>
     /// Builds the OAuth provider.
@@ -32,21 +32,21 @@ namespace DOAP
     /// <param name="clientProvider">The client provider.</param>
     /// <param name="tokenProvider">The token provider.</param>
     /// <param name="supportedScopes">The supported scopes.</param>
-    /// <param name="authorisationProvider">The authorisation provider.</param>
+    /// <param name="authorizationProvider">The authorization provider.</param>
     /// <param name="passwordProvider">The resource owner provider.</param>
     /// <param name="assertionProvider">The assertion provider.</param>
     /// <param name="accessExpiration">The access expiration.</param>
-    /// <param name="authorisationExpiration">The authorisation expiration.</param>
+    /// <param name="authorizationExpiration">The authorization expiration.</param>
     /// <returns>An OAuth provider</returns>
     public static OAuthProvider<TClientIdentity, TResourceOwner> BuildOAuthProvider<TClientIdentity, TResourceOwner>(
       IClientProvider<TClientIdentity> clientProvider,
       ITokenProvider<TClientIdentity, TResourceOwner> tokenProvider,
       IEnumerable<string> supportedScopes = null,
-      IAuthorisationProvider<TClientIdentity, TResourceOwner> authorisationProvider = null,
+      IAuthorizationProvider<TClientIdentity, TResourceOwner> authorizationProvider = null,
       IPasswordProvider<TResourceOwner> passwordProvider = null,
       IAssertionProvider<TResourceOwner> assertionProvider = null,
       TimeSpan? accessExpiration = null,
-      TimeSpan? authorisationExpiration = null
+      TimeSpan? authorizationExpiration = null
       )
     {
       var supportedGrantTypes = new List<GrantType>
@@ -64,7 +64,7 @@ namespace DOAP
         supportedGrantTypes.Add(GrantType.Assertion);
       }
 
-      if(authorisationProvider != null)
+      if(authorizationProvider != null)
       {
         supportedGrantTypes.Add(GrantType.AuthorizationCode);   
       }
@@ -78,7 +78,7 @@ namespace DOAP
 
       var oauth = new OAuthProvider<TClientIdentity, TResourceOwner>(clientProvider,
                                                                      tokenProvider,
-                                                                     authorisationProvider,
+                                                                     authorizationProvider,
                                                                      passwordProvider,
                                                                      assertionProvider,
                                                                      supportedGrantTypes,
@@ -86,8 +86,8 @@ namespace DOAP
                                                                      supportedResponseTypes,
                                                                      accessExpiration ??
                                                                      DefaultAccessTokenExpirationTime,
-                                                                     authorisationExpiration ??
-                                                                     DefaultAuthorisationCodeExpirationTime);
+                                                                     authorizationExpiration ??
+                                                                     DefaultAuthorizationCodeExpirationTime);
 
       return oauth;
     }

@@ -72,7 +72,7 @@ namespace DOAP.WCFExample.OAuth
         throw new WebFaultException<string>(oauthError, authentication.StatusCode());
       }
 
-      return new GenericIdentity("Authorised User", "OAuth2");
+      return new GenericIdentity("Authorized User", "OAuth2");
     }
   }
 }

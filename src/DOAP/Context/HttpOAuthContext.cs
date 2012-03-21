@@ -13,7 +13,7 @@ namespace DOAP.Context
   /// Adapts an http Context to the <see cref="ITokenContext{TClientTypeIdentity}"/> interface
   /// </summary>
   /// <typeparam name="TClientIdentity">The type of the client identity.</typeparam>
-  public class HttpOAuthContext<TClientIdentity> : ITokenContext<TClientIdentity>, IAuthorisationContext<TClientIdentity>
+  public class HttpOAuthContext<TClientIdentity> : ITokenContext<TClientIdentity>, IAuthorizationContext<TClientIdentity>
   {
     #region OAuth Consts
     /// <summary>
@@ -82,9 +82,9 @@ namespace DOAP.Context
     private const string UsernameParameter = "username";
 
     /// <summary>
-    /// The OAuth grant_type parameter Authorisation code value
+    /// The OAuth grant_type parameter Authorization code value
     /// </summary>
-    private const string GrantTypeAuthorisationCode = "authorization_code";
+    private const string GrantTypeAuthorizationCode = "authorization_code";
 
     /// <summary>
     /// The OAuth grant_type parameter assertion value
@@ -188,7 +188,7 @@ namespace DOAP.Context
           var requestedGrantType = this.AccessParameter(GrantParameter);
           switch (requestedGrantType)
           {
-            case GrantTypeAuthorisationCode:
+            case GrantTypeAuthorizationCode:
               this.grantType = GrantType.AuthorizationCode;
               break;
             case GrantTypeAssertion:
