@@ -297,6 +297,12 @@ namespace DOAP.Context
       get
       {
         var requestClientId = this.AccessParameter(ClientIdParameter);
+		if (typeof(TClientIdentity) == typeof(Guid))
+		{
+			var clientId = new Guid(requestClientId);
+			return (TClientIdentity)Convert.ChangeType(clientId, typeof(TClientIdentity));
+		}
+
         return (TClientIdentity)Convert.ChangeType(requestClientId, typeof(TClientIdentity));
       }
     }
