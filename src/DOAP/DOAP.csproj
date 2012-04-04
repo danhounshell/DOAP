@@ -63,6 +63,7 @@
     <Compile Include="Provider\IClientProvider.cs" />
     <Compile Include="Provider\IPasswordProvider.cs" />
     <Compile Include="Provider\ITokenProvider.cs" />
+    <Compile Include="Provider\IUserIdentityProvider.cs" />
     <Compile Include="ResponseType.cs" />
     <Compile Include="Response\AccessTokenResponse.cs" />
     <Compile Include="Response\AuthorizationResponse.cs" />

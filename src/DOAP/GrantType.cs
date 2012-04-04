@@ -11,24 +11,26 @@ namespace DOAP
   public enum GrantType
   {
     /// <summary>
-    /// As defined: http://tools.ietf.org/html/draft-ietf-oauth-v2-10#section-4.1.1
-    /// </summary>
-    AuthorizationCode,
+	/// As defined: http://tools.ietf.org/html/draft-ietf-oauth-v2-25#section-4.1
+	/// </summary>
+	AuthorizationCode,
 
-    /// <summary>
-    /// As defined: http://tools.ietf.org/html/draft-ietf-oauth-v2-10#section-4.1.2
-    /// </summary>
-    Password,
+	/// <summary>
+	/// As defined: http://tools.ietf.org/html/draft-ietf-oauth-v2-25#section-4.2
+	/// </summary>
+	Implicit,
 
-    /// <summary>
-    /// As defined: http://tools.ietf.org/html/draft-ietf-oauth-v2-10#section-4.1.3
-    /// </summary>
-    Assertion,
+	/// <summary>
+	/// As defined: http://tools.ietf.org/html/draft-ietf-oauth-v2-25#section-4.3
+	/// </summary>
+	Password,
 
-    /// <summary>
-    /// As defined: http://tools.ietf.org/html/draft-ietf-oauth-v2-10#section-4.1.4
-    /// </summary>
-    RefreshToken,
+	/// <summary>
+	/// As defined: http://tools.ietf.org/html/draft-ietf-oauth-v2-25#section-4.4
+	/// </summary>
+	ClientCredentials,
+
+	RefreshToken,
 
     /// <summary>
     /// 2-legged auth (just the client and it's own/public resources)

@@ -44,6 +44,7 @@ namespace DOAP
       IEnumerable<string> supportedScopes = null,
       IAuthorizationProvider<TClientIdentity, TResourceOwner> authorizationProvider = null,
       IPasswordProvider<TResourceOwner> passwordProvider = null,
+	  IUserIdentityProvider<TResourceOwner> userIdentityProvider = null,
       IAssertionProvider<TResourceOwner> assertionProvider = null,
       TimeSpan? accessExpiration = null,
       TimeSpan? authorizationExpiration = null
@@ -52,22 +53,18 @@ namespace DOAP
       var supportedGrantTypes = new List<GrantType>
                                   {
                                     GrantType.None,
-                                    GrantType.RefreshToken,
+                                    GrantType.Implicit,
+									GrantType.RefreshToken
                                   };
-      if (passwordProvider != null)
-      {
-        supportedGrantTypes.Add(GrantType.Password);
-      }
 
-      if (assertionProvider != null)
-      {
-        supportedGrantTypes.Add(GrantType.Assertion);
-      }
+      if (passwordProvider != null)
+        supportedGrantTypes.Add(GrantType.Password);
+
+	  if (userIdentityProvider != null)
+		  supportedGrantTypes.Add(GrantType.ClientCredentials);
 
       if(authorizationProvider != null)
-      {
-        supportedGrantTypes.Add(GrantType.AuthorizationCode);   
-      }
+		supportedGrantTypes.Add(GrantType.AuthorizationCode);   
 
       var supportedResponseTypes = new List<ResponseType>
                                      {
@@ -80,6 +77,7 @@ namespace DOAP
                                                                      tokenProvider,
                                                                      authorizationProvider,
                                                                      passwordProvider,
+																	 userIdentityProvider,
                                                                      assertionProvider,
                                                                      supportedGrantTypes,
                                                                      supportedScopes??new List<string>(),

@@ -25,6 +25,7 @@ namespace DOAP
     private readonly ITokenProvider<TClientIdentity, TResourceOwnerIdentity> tokenProvider;
     private readonly IAuthorizationProvider<TClientIdentity, TResourceOwnerIdentity> authorizationProvider;
     private readonly IPasswordProvider<TResourceOwnerIdentity> passwordProvider;
+	private readonly IUserIdentityProvider<TResourceOwnerIdentity> userIdentityProvider;
     private readonly IAssertionProvider<TResourceOwnerIdentity> assertionProvider;
     private readonly IEnumerable<GrantType> supportedGrantTypes;
     private readonly IEnumerable<ResponseType> supportedResponseTypes;
@@ -49,6 +50,7 @@ namespace DOAP
       ITokenProvider<TClientIdentity, TResourceOwnerIdentity> tokenProvider,
       IAuthorizationProvider<TClientIdentity, TResourceOwnerIdentity> authorizationProvider,
       IPasswordProvider<TResourceOwnerIdentity> passwordProvider,
+	  IUserIdentityProvider<TResourceOwnerIdentity> userIdentityProvider,
       IAssertionProvider<TResourceOwnerIdentity> assertionProvider,
       IEnumerable<GrantType> supportedGrantTypes, 
       IEnumerable<string> supportedScopes, 
@@ -60,6 +62,7 @@ namespace DOAP
       this.tokenProvider = tokenProvider;
       this.authorizationProvider = authorizationProvider;
       this.passwordProvider = passwordProvider;
+	  this.userIdentityProvider = userIdentityProvider;
       this.assertionProvider = assertionProvider;
       this.supportedGrantTypes = supportedGrantTypes ?? new List<GrantType>();
       this.supportedScopes = supportedScopes ?? new List<string>();
@@ -161,7 +164,8 @@ namespace DOAP
                                   Code = code,
                                   RedirectUri = response.RedirectUri,
                                   TimeStamp = DateTime.UtcNow,
-                                  ResourceOwnerId = resourceOwnerId
+                                  ResourceOwnerId = resourceOwnerId,
+								  ClientId = response.Client.Id
                                 };
 
       authorizationCode.Expires = authorizationCode.TimeStamp + this.authorizationTokenExpirationTime;
@@ -178,119 +182,130 @@ namespace DOAP
     /// <remarks>http://tools.ietf.org/html/draft-ietf-oauth-v2-10#section-4</remarks>
     public AccessTokenResponse<TClientIdentity, TResourceOwnerIdentity> GrantAccessToken(ITokenContext<TClientIdentity> tokenContext)
     {
-      // Check the request actually has a grant request
-      if(tokenContext.GrantType == GrantType.Unknown)
-      {
-        return new AccessTokenResponse<TClientIdentity, TResourceOwnerIdentity>
-                 {
-                   ErrorCode = ErrorCode.InvalidRequest
-                 };
-      }
+		// Check the request actually has a grant request
+		if(tokenContext.GrantType == GrantType.Unknown)
+			return new AccessTokenResponse<TClientIdentity, TResourceOwnerIdentity>
+					{
+						ErrorCode = ErrorCode.InvalidRequest
+					};
 
-      // Does the server support the grant type in the request?
-      if (!supportedGrantTypes.Contains(tokenContext.GrantType))
-      {
-        return new AccessTokenResponse<TClientIdentity, TResourceOwnerIdentity>
-                 {
-                   ErrorCode = ErrorCode.UnSupportedGrantType
-                 };
-      }
+		// Does the server support the grant type in the request?
+		if (!supportedGrantTypes.Contains(tokenContext.GrantType))
+			return new AccessTokenResponse<TClientIdentity, TResourceOwnerIdentity>
+					{
+						ErrorCode = ErrorCode.UnSupportedGrantType
+					};
 
-      // Does the client exist and do the secrets match
-      var client = this.clientProvider.FindClientById(tokenContext.ClientId);
-      if (client == null || client.Secret != tokenContext.ClientSecret)
-      {
-        return new AccessTokenResponse<TClientIdentity, TResourceOwnerIdentity>
-                 {
-                   ErrorCode = ErrorCode.InvalidClient
-                 };
-      }
+		// Does the client exist and do the secrets match
+		var client = this.clientProvider.FindClientById(tokenContext.ClientId);
+		if (client == null)
+			return new AccessTokenResponse<TClientIdentity, TResourceOwnerIdentity>
+			{
+				ErrorCode = ErrorCode.InvalidClient
+			};
 
-      ErrorCode validRequest;
-      AccessToken<TClientIdentity, TResourceOwnerIdentity> refreshToken = null;
-      TResourceOwnerIdentity resourceOwnerIdentity = default(TResourceOwnerIdentity);
+		// Validate the secret anytime its provided in the request
+		if (!string.IsNullOrWhiteSpace(tokenContext.ClientSecret) && client.Secret != tokenContext.ClientSecret)
+			return new AccessTokenResponse<TClientIdentity, TResourceOwnerIdentity>
+			{
+				ErrorCode = ErrorCode.InvalidClient
+			};
 
-      var requiresRefreshToken = true;
+		if ((tokenContext.GrantType == GrantType.AuthorizationCode || tokenContext.GrantType == GrantType.ClientCredentials) && client.Secret != tokenContext.ClientSecret)
+			return new AccessTokenResponse<TClientIdentity, TResourceOwnerIdentity>
+			{
+				ErrorCode = ErrorCode.InvalidClient
+			};
 
-      // Make sure the tokenContext is valid against the requested (and supported) grant types
-      switch (tokenContext.GrantType)
-      {
-        case GrantType.AuthorizationCode:
-          validRequest = this.VerifyAuthorizationCodeParameters(tokenContext, out resourceOwnerIdentity);
-          break;
-        case GrantType.Password:
-          validRequest = this.VerifyPasswordParameters(tokenContext, out resourceOwnerIdentity);
-          break;
-        case GrantType.Assertion:
-          validRequest = this.VerifyAssertionParameters(tokenContext, out resourceOwnerIdentity);
-          requiresRefreshToken = this.assertionProvider.RefreshTokenRequired;
-          break;
-        case GrantType.RefreshToken:
-          validRequest = this.VerifyRefreshTokenParameters(tokenContext, out refreshToken, out resourceOwnerIdentity);
-          break;
-        case GrantType.None:
-          validRequest = ErrorCode.None;
-          break;
-        default:
-          validRequest = ErrorCode.InvalidRequest;
-          break;
-      }
+		if (!client.AllowedGrantTypes.Any(g => g == tokenContext.GrantType))
+			return new AccessTokenResponse<TClientIdentity, TResourceOwnerIdentity>
+			{
+				ErrorCode = ErrorCode.InvalidGrant
+			};
 
+		ErrorCode validRequest;
+		AccessToken<TClientIdentity, TResourceOwnerIdentity> refreshToken = null;
+		TResourceOwnerIdentity resourceOwnerIdentity = default(TResourceOwnerIdentity);
 
-      // Check the request is valid
-      if (validRequest != ErrorCode.None)
-      {
-        // return an error response indicating why the request is invalid
-        return new AccessTokenResponse<TClientIdentity, TResourceOwnerIdentity>
-        {
-          ErrorCode = validRequest
-        };
-      }
+		var requiresRefreshToken = true;
 
-      // Check that the server implements the scope required
-      if(!this.IsSupportedScope(tokenContext.Scope))
-      {
-        return new AccessTokenResponse<TClientIdentity, TResourceOwnerIdentity>
-                 {
-                   ErrorCode = ErrorCode.InvalidScope
-                 };
-      }
+		// Make sure the tokenContext is valid against the requested (and supported) grant types
+		switch (tokenContext.GrantType)
+		{
+		case GrantType.AuthorizationCode:
+			validRequest = this.VerifyAuthorizationCodeParameters(tokenContext, out resourceOwnerIdentity);
+			break;
+		case GrantType.Password:
+			validRequest = this.VerifyPasswordParameters(tokenContext, out resourceOwnerIdentity);
+			break;
+		case GrantType.RefreshToken:
+			validRequest = this.VerifyRefreshTokenParameters(tokenContext, out refreshToken, out resourceOwnerIdentity);
+			break;
+		case GrantType.ClientCredentials:
+			validRequest = this.VerifyClientCredentialParameters(tokenContext, out resourceOwnerIdentity);
+			break;
+		case GrantType.None:
+			validRequest = ErrorCode.None;
+			break;
+		default:
+			validRequest = ErrorCode.InvalidRequest;
+			break;
+		}
 
-      // All good, lets give them a token.
-      var token = this.tokenProvider.GenerateToken();
+		// Check the request is valid
+		if (validRequest != ErrorCode.None)
+		{
+			// return an error response indicating why the request is invalid
+			return new AccessTokenResponse<TClientIdentity, TResourceOwnerIdentity>
+			{
+				ErrorCode = validRequest
+			};
+		}
 
-      var accessToken = new AccessToken<TClientIdentity, TResourceOwnerIdentity>
-                          {
-                            Token = token,
-                            TimeStamp = DateTime.UtcNow,
-                            Scope = tokenContext.Scope,
-                            ClientId = client.Id,
-                            ResourceOwnerId = resourceOwnerIdentity,
-                          };
+		// Check that the server implements the scope required
+		if(!this.IsSupportedScope(tokenContext.Scope))
+		{
+			return new AccessTokenResponse<TClientIdentity, TResourceOwnerIdentity>
+					{
+					ErrorCode = ErrorCode.InvalidScope
+					};
+		}
 
-      if(requiresRefreshToken)
-      {
-        accessToken.RefreshToken = this.tokenProvider.GenerateToken();
-      }
+		// All good, lets give them a token.
+		var token = this.tokenProvider.GenerateToken();
 
-      if(this.accessTokenExpirationTime.HasValue)
-      {
-        accessToken.Expires = accessToken.TimeStamp + this.accessTokenExpirationTime.Value;
-      }
+		var accessToken = new AccessToken<TClientIdentity, TResourceOwnerIdentity>
+							{
+								Token = token,
+								TimeStamp = DateTime.UtcNow,
+								Scope = tokenContext.Scope,
+								ClientId = client.Id,
+								ResourceOwnerId = resourceOwnerIdentity,
+							};
 
-      // Expire the old access token if we're going to gen a new one
-      if(refreshToken != null)
-      {
-        this.tokenProvider.ExpireAccessToken(refreshToken);
-      }
+		if(requiresRefreshToken)
+		{
+			accessToken.RefreshToken = this.tokenProvider.GenerateToken();
+		}
 
-      // save our token
-      this.tokenProvider.StoreAccessToken(accessToken);
+		if(this.accessTokenExpirationTime.HasValue)
+		{
+			accessToken.Expires = accessToken.TimeStamp + this.accessTokenExpirationTime.Value;
+		}
 
-      return new AccessTokenResponse<TClientIdentity, TResourceOwnerIdentity>
-               {
-                 AccessToken = accessToken,
-               };
+		// Expire the old access token if we're going to gen a new one
+		if(refreshToken != null)
+		{
+			this.tokenProvider.ExpireAccessToken(refreshToken);
+		}
+
+		// save our token
+		this.tokenProvider.StoreAccessToken(accessToken);
+
+		return new AccessTokenResponse<TClientIdentity, TResourceOwnerIdentity>
+				{
+					AccessToken = accessToken,
+				};
     }
 
     /// <summary>
@@ -424,7 +439,7 @@ namespace DOAP
       var authCode = this.authorizationProvider.FindAuthorizationCode(tokenContext.Code);
 
       // Invalid grant
-      if(authCode == null || authCode.RedirectUri != tokenContext.RedirectUri ||EqualityComparer<TClientIdentity>.Default.Equals(authCode.ClientId ,tokenContext.ClientId))
+      if(authCode == null || authCode.RedirectUri != tokenContext.RedirectUri || !EqualityComparer<TClientIdentity>.Default.Equals(authCode.ClientId, tokenContext.ClientId))
       {
         return ErrorCode.InvalidGrant;
       }
@@ -447,23 +462,33 @@ namespace DOAP
     /// <returns>The error (if any)</returns>
     private ErrorCode VerifyPasswordParameters(ITokenContext<TClientIdentity> tokenContext, out TResourceOwnerIdentity resourceOwnerIdentity)
     {
-      resourceOwnerIdentity = default(TResourceOwnerIdentity);
+		resourceOwnerIdentity = default(TResourceOwnerIdentity);
 
-      // Check the username/password parameters exist
-      if (string.IsNullOrWhiteSpace(tokenContext.Username) || string.IsNullOrWhiteSpace(tokenContext.Password))
-      {
-        return ErrorCode.InvalidRequest;
-      }
+		// Check the username/password parameters exist
+		if (string.IsNullOrWhiteSpace(tokenContext.Username) || string.IsNullOrWhiteSpace(tokenContext.Password))
+			return ErrorCode.InvalidRequest;
 
-      var user = this.passwordProvider.CheckResourceOwnerCredentials(tokenContext.Username, tokenContext.Password);
-      if (EqualityComparer<TResourceOwnerIdentity>.Default.Equals(user, default(TResourceOwnerIdentity)))
-      {
-        return ErrorCode.InvalidGrant;
-      }
+		var user = this.passwordProvider.CheckResourceOwnerCredentials(tokenContext.Username, tokenContext.Password);
+		if (EqualityComparer<TResourceOwnerIdentity>.Default.Equals(user, default(TResourceOwnerIdentity)))
+			return ErrorCode.InvalidGrant;
 
-      resourceOwnerIdentity = user;
-      return ErrorCode.None;
+		resourceOwnerIdentity = user;
+		return ErrorCode.None;
     }
+
+	private ErrorCode VerifyClientCredentialParameters(ITokenContext<TClientIdentity> tokenContext, out TResourceOwnerIdentity resourceOwnerIdentity)
+	{
+		resourceOwnerIdentity = default(TResourceOwnerIdentity);
+		if (string.IsNullOrWhiteSpace(tokenContext.Username))
+			return ErrorCode.InvalidRequest;
+
+		var userId = this.userIdentityProvider.GetUserIdentifier(tokenContext.Username);
+		if (EqualityComparer<TResourceOwnerIdentity>.Default.Equals(userId, default(TResourceOwnerIdentity)))
+			return ErrorCode.InvalidGrant;
+
+		resourceOwnerIdentity = userId;
+		return ErrorCode.None;
+	}
 
     /// <summary>
     /// Verifies the assertion parameters.

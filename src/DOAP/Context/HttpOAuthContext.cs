@@ -101,6 +101,11 @@ namespace DOAP.Context
     /// </summary>
     private const string GrantTypePassword = "password";
 
+	/// <summary>
+	/// The OAuth grant_type parameter client credentials: http://tools.ietf.org/html/draft-ietf-oauth-v2-25#section-4.4
+	/// </summary>
+	private const string GrantTypeClientCredentials = "client_credentials";
+
     /// <summary>
     /// The OAuth grant_type parameter refresh token value
     /// </summary>
@@ -191,9 +196,6 @@ namespace DOAP.Context
             case GrantTypeAuthorizationCode:
               this.grantType = GrantType.AuthorizationCode;
               break;
-            case GrantTypeAssertion:
-              this.grantType = GrantType.Assertion;
-              break;
             case GrantTypeNone:
               this.grantType = GrantType.None;
               break;
@@ -203,6 +205,9 @@ namespace DOAP.Context
             case GrantTypeRefreshToken:
               this.grantType = GrantType.RefreshToken;
               break;
+			case GrantTypeClientCredentials:
+			  this.grantType = GrantType.ClientCredentials;
+			  break;
             default:
               this.grantType = GrantType.Unknown;
               break;
