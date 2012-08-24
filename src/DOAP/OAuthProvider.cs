@@ -410,7 +410,7 @@ namespace DOAP
 
       if(builder.Query.Length > 1)
       {
-        builder.Query = query.Substring(1) + "&" + query;
+		  builder.Query = builder.Query.Substring(1) + "&" + query;
       }
       else
       {
