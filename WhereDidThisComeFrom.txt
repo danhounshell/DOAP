@@ -1,0 +1,7 @@
+
+This is based on Wyatt Preul's DOAP OAuth2 provider:
+https://github.com/wpreul/DOAP
+
+Which was forked from Tony Williams (TWith2Sugars) DOAP OAuth2 provider:
+https://github.com/TWith2Sugars/DOAP
+

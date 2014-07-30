@@ -35,6 +35,14 @@ namespace DOAP.WCFExample.Provider
       return result;
     }
 
+    public AccessToken<int, int> FindAccessToken(int clientId, int resourceId, IEnumerable<string> scope)
+    {
+    	var result = accessTokens.FirstOrDefault(x => (x.ClientId == clientId && x.ResourceOwnerId == resourceId && x.Scope.Equals(scope)));
+		if (result == default(AccessToken<int, int>))
+			return null;
+    	return result;
+    }
+
     /// <summary>
     /// Finds the refresh token.
     /// </summary>

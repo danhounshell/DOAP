@@ -191,12 +191,18 @@ namespace DOAP
 
 		// Does the server support the grant type in the request?
 		if (!supportedGrantTypes.Contains(tokenContext.GrantType))
-			return new AccessTokenResponse<TClientIdentity, TResourceOwnerIdentity>
-					{
-						ErrorCode = ErrorCode.UnSupportedGrantType
-					};
+		{
+			if (tokenContext.GrantType == GrantType.ClientCredentials && IsRequestForAnonymousUser(tokenContext))
+			{
+				// do nothing
+			}
+			else return new AccessTokenResponse<TClientIdentity, TResourceOwnerIdentity>
+			{
+				ErrorCode = ErrorCode.UnSupportedGrantType
+			};
+		}
 
-		// Does the client exist and do the secrets match
+    	// Does the client exist and do the secrets match
 		var client = this.clientProvider.FindClientById(tokenContext.ClientId);
 		if (client == null)
 			return new AccessTokenResponse<TClientIdentity, TResourceOwnerIdentity>
@@ -218,16 +224,20 @@ namespace DOAP
 			};
 
 		if (!client.AllowedGrantTypes.Any(g => g == tokenContext.GrantType))
-			return new AccessTokenResponse<TClientIdentity, TResourceOwnerIdentity>
+		{
+			if (tokenContext.GrantType == GrantType.ClientCredentials && IsRequestForAnonymousUser(tokenContext)) 
 			{
-				ErrorCode = ErrorCode.InvalidGrant
-			};
+				// do nothing
+			} 
+			else return new AccessTokenResponse<TClientIdentity, TResourceOwnerIdentity>
+		   	{
+		  		ErrorCode = ErrorCode.InvalidGrant
+		  	};
+		}
 
-		ErrorCode validRequest;
+    	ErrorCode validRequest;
 		AccessToken<TClientIdentity, TResourceOwnerIdentity> refreshToken = null;
 		TResourceOwnerIdentity resourceOwnerIdentity = default(TResourceOwnerIdentity);
-
-		var requiresRefreshToken = true;
 
 		// Make sure the tokenContext is valid against the requested (and supported) grant types
 		switch (tokenContext.GrantType)
@@ -271,42 +281,61 @@ namespace DOAP
 					};
 		}
 
-		// All good, lets give them a token.
-		var token = this.tokenProvider.GenerateToken();
+		// Everything is good with the request. 		
+		// Let's see if an existing access token exists
+    	AccessToken<TClientIdentity, TResourceOwnerIdentity> accessToken = tokenProvider.FindAccessToken(client.Id, resourceOwnerIdentity, tokenContext.Scope);
 
-		var accessToken = new AccessToken<TClientIdentity, TResourceOwnerIdentity>
-							{
-								Token = token,
-								TimeStamp = DateTime.UtcNow,
-								Scope = tokenContext.Scope,
-								ClientId = client.Id,
-								ResourceOwnerId = resourceOwnerIdentity,
-							};
-
-		if(requiresRefreshToken)
+		if (accessToken != null) 
 		{
-			accessToken.RefreshToken = this.tokenProvider.GenerateToken();
+			// if it hasn't expired then do nothing, we'll just return it
+			// if the token has expired then generate a new token value, update timestamp, set a new expiration, and save
+			if (accessToken.Expires.HasValue && accessToken.Expires.Value <= DateTime.UtcNow) 
+			{
+				accessToken.Token = this.tokenProvider.GenerateToken();
+				accessToken.TimeStamp = DateTime.UtcNow;
+
+				if (this.accessTokenExpirationTime.HasValue)
+					accessToken.Expires = accessToken.TimeStamp + this.accessTokenExpirationTime.Value;
+
+				this.tokenProvider.StoreAccessToken(accessToken);
+			}
+		} 
+		else
+		{
+			// if not then lets give them a token.
+			accessToken = new AccessToken<TClientIdentity, TResourceOwnerIdentity>
+			              	{
+			              		Token = this.tokenProvider.GenerateToken(),
+			              		TimeStamp = DateTime.UtcNow,
+			              		Scope = tokenContext.Scope,
+			              		ClientId = client.Id,
+			              		ResourceOwnerId = resourceOwnerIdentity,
+								RefreshToken = tokenProvider.GenerateToken()
+			              	};
+
+			if (this.accessTokenExpirationTime.HasValue)
+				accessToken.Expires = accessToken.TimeStamp + this.accessTokenExpirationTime.Value;			
+
+			// Expire the old access token if we're going to gen a new one
+			if (refreshToken != null)
+				this.tokenProvider.ExpireAccessToken(refreshToken);			
+
+			// save our token
+			this.tokenProvider.StoreAccessToken(accessToken);
 		}
 
-		if(this.accessTokenExpirationTime.HasValue)
-		{
-			accessToken.Expires = accessToken.TimeStamp + this.accessTokenExpirationTime.Value;
-		}
-
-		// Expire the old access token if we're going to gen a new one
-		if(refreshToken != null)
-		{
-			this.tokenProvider.ExpireAccessToken(refreshToken);
-		}
-
-		// save our token
-		this.tokenProvider.StoreAccessToken(accessToken);
-
-		return new AccessTokenResponse<TClientIdentity, TResourceOwnerIdentity>
+    	return new AccessTokenResponse<TClientIdentity, TResourceOwnerIdentity>
 				{
 					AccessToken = accessToken,
 				};
     }
+
+	private bool IsRequestForAnonymousUser(ITokenContext<TClientIdentity> tokenContext)
+	{
+		if (tokenContext.Username.ToLowerInvariant() == "anonymous")
+			return true;
+		return false;
+	}
 
     /// <summary>
     /// Verifies the token.
@@ -372,15 +401,15 @@ namespace DOAP
 
       if (!string.IsNullOrWhiteSpace(code) && !string.IsNullOrWhiteSpace(accessToken))
       {
-        query += string.Format("code={0}&access_token={1}", code, accessToken);   
+        query += string.Format("code={0}&access_token={1}", Uri.EscapeDataString(code), Uri.EscapeDataString(accessToken));   
       }
       else if (!string.IsNullOrWhiteSpace(code))
       {
-        query += string.Format("code={0}", code);
+        query += string.Format("code={0}", Uri.EscapeDataString(code));
       }
       else
       {
-        query += string.Format("access_token={0}", accessToken);
+        query += string.Format("access_token={0}", Uri.EscapeDataString(accessToken));
       }
 
       if(expiresIn.HasValue)
@@ -398,12 +427,12 @@ namespace DOAP
 
         // remove last comma
         scopeBuilder.Remove(scopeBuilder.Length - 1, 1);
-        query += string.Format("&scope={0}", scopeBuilder);
+        query += string.Format("&scope={0}", Uri.EscapeDataString(scopeBuilder.ToString()));
       }
 
       if (!string.IsNullOrWhiteSpace(state))
       {
-        query += string.Format("&state={0}", state);
+        query += string.Format("&state={0}", Uri.EscapeDataString(state));
       }
 
       var builder = new UriBuilder(baseUri);

@@ -3,6 +3,8 @@
 //    Copyright (c) Tony Williams 2010. All rights reserved.
 // </copyright>
 //-----------------------------------------------------------------------
+using System.Collections.Generic;
+
 namespace DOAP.Provider
 {
   /// <summary>
@@ -24,6 +26,15 @@ namespace DOAP.Provider
     /// <param name="token">The token.</param>
     /// <returns>The access token associated with the parameter </returns>
     AccessToken<TClientIdentity, TResourceOwnerIdentity> FindAccessToken(string token);
+
+	/// <summary>
+	/// Finds the existing access token.
+	/// </summary>
+	/// <param name="clientIdentity">Client Id</param>
+	/// <param name="resourceOwnerIdentity">Resource Owner Id</param>
+	/// <param name="scope">scope</param>
+	/// <returns>The access token associated with the parameters</returns>
+	AccessToken<TClientIdentity, TResourceOwnerIdentity> FindAccessToken(TClientIdentity clientIdentity, TResourceOwnerIdentity resourceOwnerIdentity, IEnumerable<string> scope);
 
     /// <summary>
     /// Finds the refresh token.

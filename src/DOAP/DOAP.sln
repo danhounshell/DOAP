@@ -1,11 +1,11 @@
 ﻿
-Microsoft Visual Studio Solution File, Format Version 11.00
-# Visual Studio 2010
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2012
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Example", "Example", "{60E8D9F3-AC95-443A-8D53-5C67CF0BAB30}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DOAP", "DOAP.csproj", "{D709D6F5-9F2E-494B-BE7B-10CD408B300A}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DOAP.WCF", "..\DOAP.WCF\DOAP.WCF.csproj", "{D594F3F7-A745-4451-AB28-CCD00AE04161}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Example", "Example", "{60E8D9F3-AC95-443A-8D53-5C67CF0BAB30}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DOAP.WCFExample", "..\DOAP.WCFExample\DOAP.WCFExample.csproj", "{31FC7CD5-AD15-40CF-A32A-EFCD6D4FBF9D}"
 EndProject
